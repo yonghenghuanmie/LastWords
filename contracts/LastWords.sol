@@ -19,16 +19,11 @@ contract LastWords
 		bytes data;
 	}
 
-	struct ExtraConditions
+	struct Extra
 	{
 		address contract_address;
-		bytes call_data;
-	}
-
-	struct ExtraActions
-	{
-		address contract_address;
-		bytes call_data;
+		bytes condition_data;
+		bytes action_data;
 	}
 
 	// Last words for public.
@@ -43,14 +38,14 @@ contract LastWords
 	error NotEnoughTime(uint120 time);
 	/// Failed to pass extra condition check.
 	error ExtraConditionCheckFailed();
+	/// Should use ExecuteArrangementsOnce instead.
+	error RestrictedCall(string suggest_method);
 
-	/// @notice @param extra_conditions is about extra condition check and @param extra_actions is about extra action.
+	/// @notice extra condition check and extra process.
 	/// @dev check(bytes) signature for extra condition check and only if it returns true ExecuteArrangements will allow continue execution.
 	/// process(bytes) signature for extra action.
-	mapping (address=>bool) has_extra_conditions;
-	mapping (address=>ExtraConditions) extra_conditions;
-	mapping (address=>bool) has_extra_actions;
-	mapping (address=>ExtraActions) extra_actions;
+	mapping (address=>bool) has_extra;
+	mapping (address=>Extra) extra;
 
 	function SetLastWords(string calldata message) external
 	{
@@ -70,46 +65,62 @@ contract LastWords
 		arrangements[msg.sender][who]=Arrangements(when,only_execute_once,message,data);
 	}
 
-	function SetExtraConditions(address contract_address,bytes calldata call_data) external
+	function SetExtra(address contract_address,bytes calldata condition_data,bytes calldata action_data) external
 	{
-		has_extra_conditions[msg.sender]=true;
-		extra_conditions[msg.sender]=ExtraConditions(contract_address,call_data);
+		has_extra[msg.sender]=true;
+		extra[msg.sender]=Extra(contract_address,condition_data,action_data);
 	}
 
-	function SetExtraActions(address contract_address,bytes calldata call_data) external
+	function ExecuteArrangements(address who) public view returns(string memory message,bytes memory data)
 	{
-		has_extra_actions[msg.sender]=true;
-		extra_actions[msg.sender]=ExtraActions(contract_address,call_data);
-	}
-
-	function ExecuteArrangements(address who) external returns(string memory message,bytes memory data)
-	{
+		Arrangements storage arrangement=arrangements[who][msg.sender];
 		//check conditions
+		if(arrangement.only_execute_once)
+			revert RestrictedCall("ExecuteArrangementsOnce");
+		if(has_extra[who])
+			revert RestrictedCall("ExecuteArrangementsWithExtra");
 		if(!has_arrangements[who][msg.sender])
 			revert DontHaveArrangements(who,msg.sender);
-		Arrangements storage arrangement=arrangements[who][msg.sender];
 		if(block.timestamp<arrangement.when)
 			revert NotEnoughTime(arrangement.when);
-		if(has_extra_conditions[who])
+
+		return (arrangement.message,arrangement.data);
+	}
+
+	function ExecuteArrangementsWithExtra(address who) public returns(string memory message,bytes memory data)
+	{
+		if(arrangements[who][msg.sender].only_execute_once)
+			revert RestrictedCall("ExecuteArrangementsOnce");
+
+		if(has_extra[who])
 		{
-			bytes memory payload=abi.encodeWithSignature("check(bytes)",extra_conditions[who].call_data);
-			bytes memory stream=extra_conditions[who].contract_address.functionCall(payload);
+			bytes memory payload=abi.encodeWithSignature("check(bytes)",extra[who].condition_data);
+			bytes memory stream=extra[who].contract_address.functionCall(payload);
 			if(!abi.decode(stream,(bool)))
 				revert ExtraConditionCheckFailed();
-		}
+			
+			//temporarily remove flag
+			has_extra[who]=false;
+			(message,data)=ExecuteArrangements(who);
+			has_extra[who]=true;
 
-		//do arrangements
-		message=arrangement.message;
-		data=arrangement.data;
-		emit Arrangement(message,data);
-		if(has_extra_actions[who])
+			payload=abi.encodeWithSignature("process(bytes)",extra[who].action_data);
+			extra[who].contract_address.functionCall(payload);
+		}
+		else
+			(message,data)=ExecuteArrangements(who);
+	}
+
+	function ExecuteArrangementsOnce(address who) external returns(string memory message,bytes memory data)
+	{
+		if(arrangements[who][msg.sender].only_execute_once)
 		{
-			bytes memory payload=abi.encodeWithSignature("process(bytes)",extra_actions[who].call_data);
-			extra_actions[who].contract_address.functionCall(payload);
-		}
-
-		//ensure only execute once.
-		if(arrangement.only_execute_once)
+			arrangements[who][msg.sender].only_execute_once=false;
+			(message,data)=has_extra[who]?ExecuteArrangementsWithExtra(who):ExecuteArrangements(who);
+			//ensure only execute once.
 			has_arrangements[who][msg.sender]=false;
+		}
+		else
+			(message,data)=has_extra[who]?ExecuteArrangementsWithExtra(who):ExecuteArrangements(who);
 	}
 }
