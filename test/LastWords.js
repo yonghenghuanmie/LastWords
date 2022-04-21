@@ -15,6 +15,7 @@ contract("LastWords test", async (accounts) => {
 	let instance;
 	let instanceOfC;
 	let web3;
+	let available_time;
 	let weis = function (num) {
 		return web3.utils.toWei(String(num), "ether");
 	}
@@ -22,7 +23,6 @@ contract("LastWords test", async (accounts) => {
 		instance = await LastWords.deployed();
 		instanceOfC = await c.deployed();
 		console.log("contract:" + instance.address);
-		console.log("alice:" + alice + "\nbob:" + bob);
 		web3 = new Web3(Web3.givenProvider || 'ws://127.0.0.1:7545');
 	});
 
@@ -35,44 +35,49 @@ contract("LastWords test", async (accounts) => {
 		expect(result).to.equal(alice_lastwords);
 	});
 	it("test SetArrangements", async () => {
-		let available_time = (await web3.eth.getBlock("latest")).timestamp + wait_time;
-		let result = await instance.SetArrangements(nobody, available_time, true, message, new Uint8Array(), { from: alice });
+		available_time = (await web3.eth.getBlock("latest")).timestamp + wait_time;
+		let result = await instance.SetArrangements(nobody, available_time, false, message, new Uint8Array(), { from: alice });
 		expect(result.receipt.status).to.equal(true);
 	});
-	it("test unavailable time through ExecuteArrangements", async () => {
+	it("test SetArrangements(only_once)", async () => {
+		let result = await instance.SetArrangements(bob, available_time, true, message, new Uint8Array(), { from: alice });
+		expect(result.receipt.status).to.equal(true);
+	});
+	it("test unavailable time through ExecuteArrangementsOnce", async () => {
 		try {
-			let result = await instance.ExecuteArrangements(alice, { from: nobody });
+			let result = await instance.ExecuteArrangementsOnce(alice, { from: bob });
 			assert(false);
 		}
 		catch { }
 	});
-	it("test SetExtraConditions", async () => {
-		let result = await instance.SetExtraConditions(instanceOfC.address, new Uint8Array(), { from: alice });
+	it("test SetExtra", async () => {
+		let result = await instance.SetExtra(instanceOfC.address, new Uint8Array(),new Uint8Array(), { from: alice });
 		expect(result.receipt.status).to.equal(true);
 	});
 
-	it("test SetExtraActions", async () => {
-		let result = await instance.SetExtraActions(instanceOfC.address, new Uint8Array(), { from: alice });
-		expect(result.receipt.status).to.equal(true);
-	});
-	it("test ExecuteArrangements calling by wrong person", async () => {
+	it("test ExecuteArrangementsOnce calling by wrong person", async () => {
 		try {
-			let result = await instance.ExecuteArrangements(alice, { from: alice });
+			let result = await instance.ExecuteArrangementsOnce(alice, { from: alice });
 			assert(false);
 		}
 		catch { }
 	});
-	it("test ExecuteArrangements with right condition", async () => {
+	it("test ExecuteArrangementsOnce with right condition", async () => {
 		await new Promise(r => setTimeout(r, 10000));
-		let result = await instance.ExecuteArrangements(alice, { from: nobody });
+		let result = await instance.ExecuteArrangementsOnce(alice, { from: bob });
 		expect(result.receipt.status).to.equal(true);
 		expect(result.logs[0].args[0]).to.equal(message);
 	});
-	it("test calling ExecuteArrangements more than once after succeed", async () => {
+	it("test calling ExecuteArrangementsOnce more than once after succeed", async () => {
 		try {
-			let result = await instance.ExecuteArrangements(alice, { from: nobody });
+			let result = await instance.ExecuteArrangementsOnce(alice, { from: bob });
 			assert(false);
 		}
 		catch { }
+	});
+	it("test ExecuteArrangements", async () => {
+		// nobody
+		let [arrangement_message,] = await instance.ExecuteArrangements.call(alice);
+		expect(arrangement_message).to.equal(message);
 	});
 });

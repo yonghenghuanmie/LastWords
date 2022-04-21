@@ -109,6 +109,7 @@ contract LastWords
 		}
 		else
 			(message,data)=ExecuteArrangements(who);
+		emit Arrangement(message, data);
 	}
 
 	function ExecuteArrangementsOnce(address who) external returns(string memory message,bytes memory data)
@@ -122,5 +123,6 @@ contract LastWords
 		}
 		else
 			(message,data)=has_extra[who]?ExecuteArrangementsWithExtra(who):ExecuteArrangements(who);
+		emit Arrangement(message, data);
 	}
 }
