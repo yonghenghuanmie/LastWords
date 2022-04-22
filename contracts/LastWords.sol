@@ -2,13 +2,17 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title A contract for these who prepared for their last words and arrange business after their death.
 /// @author huanmie<yonghenghuanmie@gmail.com>
 /// @notice IMPORTANT: Do not save any important data direct to blockchain cause anyone can see it.
 /// For any message private you should encryption it first.
-contract LastWords
+contract LastWords is Ownable,UUPSUpgradeable
 {
+	function _authorizeUpgrade(address newImplementation) onlyOwner internal override {}
+
 	using Address for address;
 
 	struct Arrangements
