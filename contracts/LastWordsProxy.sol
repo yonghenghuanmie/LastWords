@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./LastWordsInterface.sol";
 
-contract LastWordsProxy is ERC1967Proxy(0x549AF41c592590a0907864C946467cb3795Fe193,new bytes(0)),LastWordsInterface
+contract LastWordsProxy is ERC1967Proxy(0x7D6dd4EA5Ba9E28a113Bc91d86f58F6494Ea6758,new bytes(0)),LastWordsInterface
 {
 	function Forward() external
 	{
