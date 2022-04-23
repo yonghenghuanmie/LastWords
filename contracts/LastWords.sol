@@ -4,12 +4,13 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "./LastWordsInterface.sol";
 
 /// @title A contract for these who prepared for their last words and arrange business after their death.
 /// @author huanmie<yonghenghuanmie@gmail.com>
 /// @notice IMPORTANT: Do not save any important data direct to blockchain cause anyone can see it.
 /// For any message private you should encryption it first.
-contract LastWords is Ownable,UUPSUpgradeable
+contract LastWords is Ownable,UUPSUpgradeable,LastWordsInterface
 {
 	function _authorizeUpgrade(address newImplementation) onlyOwner internal override {}
 
@@ -56,7 +57,8 @@ contract LastWords is Ownable,UUPSUpgradeable
 		last_words[msg.sender]=message;
 	}
 
-	function GetLastWords(address who) external view returns(string memory)
+	function GetLastWords(address who) external view
+		returns(string memory message)
 	{
 		return last_words[who];
 	}
@@ -75,7 +77,8 @@ contract LastWords is Ownable,UUPSUpgradeable
 		extra[msg.sender]=Extra(contract_address,condition_data,action_data);
 	}
 
-	function ExecuteArrangements(address who) public view returns(string memory message,bytes memory data)
+	function ExecuteArrangements(address who) public view
+		returns(string memory message,bytes memory data)
 	{
 		Arrangements storage arrangement=arrangements[who][msg.sender];
 		//check conditions
@@ -91,7 +94,8 @@ contract LastWords is Ownable,UUPSUpgradeable
 		return (arrangement.message,arrangement.data);
 	}
 
-	function ExecuteArrangementsWithExtra(address who) public returns(string memory message,bytes memory data)
+	function ExecuteArrangementsWithExtra(address who) public
+		returns(string memory message,bytes memory data)
 	{
 		if(arrangements[who][msg.sender].only_execute_once)
 			revert RestrictedCall("ExecuteArrangementsOnce");
@@ -116,7 +120,8 @@ contract LastWords is Ownable,UUPSUpgradeable
 		emit Arrangement(message, data);
 	}
 
-	function ExecuteArrangementsOnce(address who) external returns(string memory message,bytes memory data)
+	function ExecuteArrangementsOnce(address who) external
+		returns(string memory message,bytes memory data)
 	{
 		if(arrangements[who][msg.sender].only_execute_once)
 		{
